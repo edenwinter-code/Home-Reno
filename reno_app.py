@@ -7,7 +7,7 @@ from streamlit_gsheets import GSheetsConnection
 st.set_page_config(page_title="My Home Reno Planner", layout="wide")
 
 # 2. Define the URL (Notice it is lowercase now to match the rest of the code)
-url = "https://docs.google.com/spreadsheets/d/14j8yI42-0bmqydQCNjMvSXJr1TweapUCUvtRiXvp41I/edit"
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.title("🏗️ Cloud Reno Manager")
 
