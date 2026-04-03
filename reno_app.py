@@ -5,7 +5,7 @@ from google.oauth2.service_account import Credentials
 
 # --- CONFIG ---
 # Replace with your actual spreadsheet ID
-SPREADSHEET_ID = "https://docs.google.com/spreadsheets/d/1OKXpUghhzU-3eT0jx8fSYcrASLr4TkjfjnT3ep3TT_Q/edit" 
+SPREADSHEET_ID = "1OKXpUghhzU-3eT0jx8fSYcrASLr4TkjfjnT3ep3TT_Q" 
 
 st.set_page_config(page_title="Reno Manager", layout="wide")
 
