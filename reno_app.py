@@ -4,9 +4,21 @@ import pandas as pd
 from google.oauth2.service_account import Credentials
 
 # --- 1. CONFIGURATION ---
-# Replace with the exact name of your Google Sheet
-SPREADSHEET_NAME = "1OKXpUghhzU-3eT0jx8fSYcrASLr4TkjfjnT3ep3TT_Q" 
-
+def load_data(sheet_name):
+    """Connects using the unique Spreadsheet ID (key)."""
+    try:
+        client = get_gspread_client()
+        # Use the ID directly to avoid name typos
+        SPREADSHEET_ID = "1OKXpUghhzU-3eT0jx8fSYcrASLr4TkjfjnT3ep3TT_Q"
+        sh = client.open_by_key(SPREADSHEET_ID) # Changed from .open()
+        
+        worksheet = sh.worksheet(sheet_name)
+        data = worksheet.get_all_records()
+        return pd.DataFrame(data)
+    except gspread.exceptions.SpreadsheetNotFound:
+        st.error("Spreadsheet not found. Did you share it with the service account email?")
+        st.stop()
+        
 # --- 2. AUTHENTICATION FUNCTION ---
 def get_gspread_client():
     """Authenticates and returns a gspread client using Streamlit secrets."""
