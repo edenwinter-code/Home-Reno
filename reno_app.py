@@ -5,7 +5,7 @@ from google.oauth2.service_account import Credentials
 
 # --- 1. CONFIGURATION ---
 # Replace with the exact name of your Google Sheet
-SPREADSHEET_NAME = "1OKXpUghhzU-3eT0jx8fSYcrASLr4TkjfjnT3ep3TT_Q" 
+SPREADSHEET_NAME = "https://docs.google.com/spreadsheets/d/1OKXpUghhzU-3eT0jx8fSYcrASLr4TkjfjnT3ep3TT_Q/edit" 
 
 # --- 2. AUTHENTICATION FUNCTION ---
 def get_gspread_client():
