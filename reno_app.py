@@ -1,61 +1,68 @@
 import streamlit as st
+import gspread
 import pandas as pd
-import gspread
 from google.oauth2.service_account import Credentials
 
-# --- CONFIG ---
-SPREADSHEET_ID = "1OKXpUghhzU-3eT0jx8fSYcrASLr4TkjfjnT3ep3TT_Q"
+# --- 1. CONFIGURATION ---
+# Replace with the exact name of your Google Sheet
+SPREADSHEET_NAME = "Your Spreadsheet Name" 
 
-st.set_page_config(page_title="Reno Manager", layout="wide")
-
-# --- AUTHENTICATION ---
-from google.oauth2.service_account import Credentials
-import gspread
-import streamlit as st
-
-# Define the necessary scopes
-scopes = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-]
-
-# Load credentials from Streamlit secrets
-creds = Credentials.from_service_account_info(
-    st.secrets["service_account"], 
-    scopes=scopes
-)
-client = gspread.authorize(creds)
-
-# --- DATA HANDLING ---
-def load_data(worksheet_name):
-    client = get_gspread_client()
-    sh = client.open_by_key(SPREADSHEET_ID)
-    worksheet = sh.worksheet(worksheet_name)
-    data = worksheet.get_all_records()
+# --- 2. AUTHENTICATION FUNCTION ---
+def get_gspread_client():
+    """Authenticates and returns a gspread client using Streamlit secrets."""
+    # These scopes are required to talk to Google Sheets and Drive
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
     
-    # If the sheet is empty, return a starter table so it's editable
-    if not data:
-        if worksheet_name == "Budget":
-            return pd.DataFrame({"Category": ["Structural"], "Estimated": [0], "Actual": [0]})
-        else:
-            return pd.DataFrame({"Task": ["Planning"], "Start": ["2026-04-01"], "Finish": ["2026-04-15"], "Resource": ["Owner"]})
-    return pd.DataFrame(data)
+    # This pulls the credentials from the [gcp_service_account] block in your Secrets
+    try:
+        creds = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"], 
+            scopes=scopes
+        )
+        return gspread.authorize(creds)
+    except KeyError:
+        st.error("Error: 'gcp_service_account' not found in Streamlit Secrets.")
+        st.stop()
+    except Exception as e:
+        st.error(f"Authentication failed: {e}")
+        st.stop()
 
-st.title("🏗️ Professional Reno Manager")
+# --- 3. DATA LOADING FUNCTION ---
+@st.cache_data(ttl=600) # Optional: Caches data for 10 minutes to speed up the app
+def load_data(sheet_name):
+    """Connects to a specific worksheet and returns the data as a DataFrame."""
+    try:
+        client = get_gspread_client()
+        # Open the spreadsheet by name
+        sh = client.open(SPREADSHEET_NAME)
+        # Select the worksheet (e.g., "Budget")
+        worksheet = sh.worksheet(sheet_name)
+        # Convert the data into a Pandas DataFrame
+        data = worksheet.get_all_records()
+        return pd.DataFrame(data)
+    except gspread.exceptions.SpreadsheetNotFound:
+        st.error(f"Spreadsheet '{SPREADSHEET_NAME}' not found. Check the name and sharing permissions.")
+        st.stop()
+    except Exception as e:
+        st.error(f"Error loading sheet '{sheet_name}': {e}")
+        return pd.DataFrame()
 
-# 1. Budget Section
-st.header("Financial Overview")
+# --- 4. MAIN APP LOGIC ---
+st.title("Home Reno Dashboard")
+
+# Call the function for your "Budget" sheet
 budget_df = load_data("Budget")
-# CRITICAL: We added key="budget_table"
-edited_budget = st.data_editor(budget_df, num_rows="dynamic", key="budget_table")
 
-# 2. Timeline Section
-st.header("Project Timeline")
-timeline_df = load_data("Timeline")
-# CRITICAL: We added key="timeline_table"
-edited_timeline = st.data_editor(timeline_df, num_rows="dynamic", key="timeline_table")
+if not budget_df.empty:
+    st.subheader("Budget Data")
+    st.write(budget_df)
+else:
+    st.info("No data found in the 'Budget' worksheet.")
 
-# 3. Save Button
+# 5. Save Button
 st.divider()
 if st.button("💾 Save All Changes"):
     client = get_gspread_client()
