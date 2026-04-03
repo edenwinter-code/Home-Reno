@@ -12,7 +12,7 @@ st.set_page_config(page_title="Reno Manager", layout="wide")
 @st.cache_resource
 def get_gspread_client():
     # Fetch secrets
-    creds_dict = dict(st.secrets["service_account"]["gsheets"])
+    creds_dict = dict(st.secrets["service_account"])
     
     # This line fixes the common "line break" issue automatically
     creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
