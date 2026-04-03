@@ -9,17 +9,22 @@ SPREADSHEET_ID = "1OKXpUghhzU-3eT0jx8fSYcrASLr4TkjfjnT3ep3TT_Q"
 st.set_page_config(page_title="Reno Manager", layout="wide")
 
 # --- AUTHENTICATION ---
-@st.cache_resource
-def get_gspread_client():
-    # Fetch secrets
-    creds_dict = dict(st.secrets["service_account"])
-    
-    # This line fixes the common "line break" issue automatically
-    creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-    
-    scopes = ["https://googleapis.com", "https://googleapis.com"]
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-    return gspread.authorize(creds)
+from google.oauth2.service_account import Credentials
+import gspread
+import streamlit as st
+
+# Define the necessary scopes
+scopes = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
+
+# Load credentials from Streamlit secrets
+creds = Credentials.from_service_account_info(
+    st.secrets["service_account"], 
+    scopes=scopes
+)
+client = gspread.authorize(creds)
 
 # --- DATA HANDLING ---
 def load_data(worksheet_name):
