@@ -3,43 +3,34 @@ import pandas as pd
 import plotly.express as px
 from streamlit_gsheets import GSheetsConnection
 
-# 1. Page Config MUST be first
 st.set_page_config(page_title="My Home Reno Planner", layout="wide")
-
-# 2. Define the URL (Notice it is lowercase now to match the rest of the code)
-conn = st.connection("gsheets", type=GSheetsConnection)
-
 st.title("🏗️ Cloud Reno Manager")
 
-# 3. Create Connection
+# The connection now automatically looks in 'Secrets' for the key!
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# 4. Load Data from Cloud (Using st.session_state to remember changes)
+# Load data using the secure connection
 if 'budget_df' not in st.session_state:
     st.session_state.budget_df = conn.read(worksheet="Budget", ttl=0)
 if 'timeline_df' not in st.session_state:
     st.session_state.timeline_df = conn.read(worksheet="Timeline", ttl=0)
 
-# 5. Budget Tracker Section
+# Display Budget
 st.header("Financial Overview")
 edited_budget = st.data_editor(st.session_state.budget_df, num_rows="dynamic", key="b_edit")
 
-# 6. Timeline Section
+# Display Timeline & Chart
 st.header("Project Timeline")
 edited_timeline = st.data_editor(st.session_state.timeline_df, num_rows="dynamic", key="t_edit")
 
-# Draw the Chart
 fig = px.timeline(edited_timeline, x_start="Start", x_end="Finish", y="Task", color="Resource")
 fig.update_yaxes(autorange="reversed")
 st.plotly_chart(fig, use_container_width=True)
 
-# 7. Save Button
-st.divider()
+# Save Button
 if st.button("☁️ Save to Cloud"):
-    # The connection now knows the URL from your Secrets!
     conn.update(worksheet="Budget", data=edited_budget)
     conn.update(worksheet="Timeline", data=edited_timeline)
-    
     st.session_state.budget_df = edited_budget
     st.session_state.timeline_df = edited_timeline
-    st.success("Saved to Google Sheets!")
+    st.success("Successfully saved to Google Sheets via Secure Key!")
