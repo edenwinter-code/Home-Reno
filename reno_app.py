@@ -11,7 +11,12 @@ st.set_page_config(page_title="Reno Manager", layout="wide")
 # --- AUTHENTICATION ---
 @st.cache_resource
 def get_gspread_client():
-    creds_dict = st.secrets["connections"]["gsheets"]
+    # Fetch secrets
+    creds_dict = dict(st.secrets["connections"]["gsheets"])
+    
+    # This line fixes the common "line break" issue automatically
+    creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+    
     scopes = ["https://googleapis.com", "https://googleapis.com"]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
