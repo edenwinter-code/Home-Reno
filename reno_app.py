@@ -6,14 +6,18 @@ from streamlit_gsheets import GSheetsConnection
 st.set_page_config(page_title="My Home Reno Planner", layout="wide")
 st.title("🏗️ Cloud Reno Manager")
 
-# The connection now automatically looks in 'Secrets' for the key!
+# 1. Define the URL clearly here
+url = "https://google.com"
+
+# 2. Create the connection
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Load data using the secure connection
+# 3. Use the URL inside the read command
 if 'budget_df' not in st.session_state:
-    st.session_state.budget_df = conn.read(worksheet="Budget", ttl=0)
+    # We add spreadsheet=url back in to be safe
+    st.session_state.budget_df = conn.read(spreadsheet=url, worksheet="Budget", ttl=0)
 if 'timeline_df' not in st.session_state:
-    st.session_state.timeline_df = conn.read(worksheet="Timeline", ttl=0)
+    st.session_state.timeline_df = conn.read(spreadsheet=url, worksheet="Timeline", ttl=0)
 
 # Display Budget
 st.header("Financial Overview")
