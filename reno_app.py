@@ -5,7 +5,7 @@ from google.oauth2.service_account import Credentials
 
 # --- 1. CONFIGURATION ---
 # Replace with the exact name of your Google Sheet
-SPREADSHEET_NAME = "Your Spreadsheet Name" 
+SPREADSHEET_NAME = "1OKXpUghhzU-3eT0jx8fSYcrASLr4TkjfjnT3ep3TT_Q" 
 
 # --- 2. AUTHENTICATION FUNCTION ---
 def get_gspread_client():
@@ -19,7 +19,7 @@ def get_gspread_client():
     # This pulls the credentials from the [gcp_service_account] block in your Secrets
     try:
         creds = Credentials.from_service_account_info(
-            st.secrets["gcp_service_account"], 
+            st.secrets["service_account"], 
             scopes=scopes
         )
         return gspread.authorize(creds)
