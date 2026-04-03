@@ -16,9 +16,9 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 # 4. Load Data from Cloud (Using st.session_state to remember changes)
 if 'budget_df' not in st.session_state:
-    st.session_state.budget_df = conn.read(spreadsheet=url, worksheet="Budget")
+    st.session_state.budget_df = conn.read(worksheet="Budget", ttl=0)
 if 'timeline_df' not in st.session_state:
-    st.session_state.timeline_df = conn.read(spreadsheet=url, worksheet="Timeline")
+    st.session_state.timeline_df = conn.read(worksheet="Timeline", ttl=0)
 
 # 5. Budget Tracker Section
 st.header("Financial Overview")
@@ -36,11 +36,10 @@ st.plotly_chart(fig, use_container_width=True)
 # 7. Save Button
 st.divider()
 if st.button("☁️ Save to Cloud"):
-    # This pushes your edits to Google Sheets
-    conn.update(spreadsheet=url, worksheet="Budget", data=edited_budget)
-    conn.update(spreadsheet=url, worksheet="Timeline", data=edited_timeline)
+    # The connection now knows the URL from your Secrets!
+    conn.update(worksheet="Budget", data=edited_budget)
+    conn.update(worksheet="Timeline", data=edited_timeline)
     
-    # This updates the app's memory so it doesn't "revert" on refresh
     st.session_state.budget_df = edited_budget
     st.session_state.timeline_df = edited_timeline
-    st.success("Saved to Google Sheets! Access it anywhere now.")
+    st.success("Saved to Google Sheets!")
