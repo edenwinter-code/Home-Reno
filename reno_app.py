@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 
-URL = https://docs.google.com/spreadsheets/d/14j8yI42-0bmqydQCNjMvSXJr1TweapUCUvtRiXvp41I/edit?usp=sharing
+URL = "https://docs.google.com/spreadsheets/d/14j8yI42-0bmqydQCNjMvSXJr1TweapUCUvtRiXvp41I/edit?usp=sharing"
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 default_budget = {"Category": ["Structural", "Kitchen"], "Estimated": [0, 0], "Actual": [0, 0]}
