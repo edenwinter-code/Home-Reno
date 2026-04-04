@@ -57,6 +57,48 @@ edited_todo = st.data_editor(
     }
 )
 
+# --- SIDEBAR: QUICK CALCULATORS (Section 2) ---
+with st.sidebar:
+    st.header("🧮 Material Calculators")
+    calc_type = st.selectbox("Choose Calculator", ["Tile/Flooring", "Paint"])
+    
+    if calc_type == "Tile/Flooring":
+        length = st.number_input("Length (ft)", min_value=0.0, value=10.0)
+        width = st.number_input("Width (ft)", min_value=0.0, value=10.0)
+        waste = st.slider("Waste Allowance (%)", 0, 20, 10)
+        area = length * width
+        total = area * (1 + waste/100)
+        st.metric("Total Sq Ft Needed", f"{total:.1f} sq ft")
+        
+    elif calc_type == "Paint":
+        p_length = st.number_input("Wall Length (ft)", min_value=0.0, value=12.0)
+        p_height = st.number_input("Wall Height (ft)", min_value=0.0, value=8.0)
+        coats = st.number_input("Number of Coats", 1, 3, 2)
+        # Avg coverage: 350 sq ft per gallon
+        gallons = ((p_length * p_height) * coats) / 350
+        st.metric("Gallons Needed", f"{gallons:.2f}")
+
+# --- D. CONTACTS DIRECTORY (Section 3) ---
+st.divider()
+st.header("📞 Trades & Contacts")
+contacts_df = load_data("Contacts")
+edited_contacts = st.data_editor(contacts_df, num_rows="dynamic", key="contact_edit", use_container_width=True)
+
+# --- E. SHOPPING WISHLIST (Section 4) ---
+st.divider()
+st.header("🛒 Shopping Wishlist")
+wishlist_df = load_data("Wishlist")
+edited_wishlist = st.data_editor(
+    wishlist_df, 
+    num_rows="dynamic", 
+    key="wish_edit",
+    column_config={
+        "Price": st.column_config.NumberColumn(format="$%.2f"),
+        "Link": st.column_config.LinkColumn("Product Link")
+    },
+    use_container_width=True
+)
+
 # --- A. BUDGET SECTION (UPDATED) ---
 st.header("💰 Budget Tracking")
 budget_df = load_data("Budget")
@@ -177,6 +219,18 @@ if st.button("💾 Save All Changes"):
         # Fill empty todo cells with an empty string
         todo_to_save = edited_todo.fillna("")
         todo_sheet.update([todo_to_save.columns.tolist()] + todo_to_save.astype(str).values.tolist())
+
+        # 4. Save Contacts
+c_sheet = sh.worksheet("Contacts")
+c_sheet.clear()
+contacts_to_save = edited_contacts.fillna("")
+c_sheet.update([contacts_to_save.columns.tolist()] + contacts_to_save.astype(str).values.tolist())
+
+# 5. Save Wishlist
+w_sheet = sh.worksheet("Wishlist")
+w_sheet.clear()
+wishlist_to_save = edited_wishlist.fillna("")
+w_sheet.update([wishlist_to_save.columns.tolist()] + wishlist_to_save.astype(str).values.tolist())
         
         st.success("Successfully synced all data!")
         st.cache_data.clear() 
