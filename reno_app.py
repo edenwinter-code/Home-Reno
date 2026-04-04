@@ -147,35 +147,38 @@ if not edited_timeline.empty:
     except Exception as e:
         st.error(f"Chart Error: Ensure dates are YYYY-MM-DD. ({e})")
 
-# --- 5. SAVE CHANGES (UPDATED FIX) ---
+# --- 5. SAVE CHANGES (ROBUST FIX) ---
 st.divider()
 if st.button("💾 Save All Changes"):
     try:
         client = get_gspread_client()
         sh = client.open_by_key(SPREADSHEET_ID)
         
-        # 1. Save Budget (The Fix: Convert to string for gspread compatibility)
-        edited_budget["Difference"] = edited_budget["Estimated"] - edited_budget["Actual"]
-        
-        # Convert all columns to strings to avoid JSON/Type errors in gspread
-        budget_to_save = edited_budget.astype(str).values.tolist()
-        budget_headers = edited_budget.columns.tolist()
+        # 1. Save Budget
+        # Fill empty cells (NaN) with 0.0 before doing any math
+        budget_to_save = edited_budget.fillna(0.0)
+        budget_to_save["Difference"] = budget_to_save["Estimated"] - budget_to_save["Actual"]
         
         b_sheet = sh.worksheet("Budget")
         b_sheet.clear()
-        b_sheet.update([budget_headers] + budget_to_save)
+        # Convert to string at the very last step to ensure JSON compliance
+        b_sheet.update([budget_to_save.columns.tolist()] + budget_to_save.astype(str).values.tolist())
 
         # 2. Save Timeline
         t_sheet = sh.worksheet("Timeline")
         t_sheet.clear()
-        t_sheet.update([edited_timeline.columns.tolist()] + edited_timeline.astype(str).values.tolist())
+        # Fill empty timeline cells with an empty string so they don't cause JSON errors
+        timeline_to_save = edited_timeline.fillna("")
+        t_sheet.update([timeline_to_save.columns.tolist()] + timeline_to_save.astype(str).values.tolist())
         
         # 3. Save Todo List
         todo_sheet = sh.worksheet("Todo")
         todo_sheet.clear()
-        todo_sheet.update([edited_todo.columns.tolist()] + edited_todo.astype(str).values.tolist())
+        # Fill empty todo cells with an empty string
+        todo_to_save = edited_todo.fillna("")
+        todo_sheet.update([todo_to_save.columns.tolist()] + todo_to_save.astype(str).values.tolist())
         
-        st.success("Successfully synced all sections to Google Sheets!")
+        st.success("Successfully synced all data!")
         st.cache_data.clear() 
         
     except Exception as e:
