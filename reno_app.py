@@ -8,7 +8,12 @@ SPREADSHEET_ID = "1OKXpUghhzU-3eT0jx8fSYcrASLr4TkjfjnT3ep3TT_Q"
 
 # --- 2. AUTHENTICATION ---
 def get_gspread_client():
-    scopes = ["https://googleapis.com", "https://googleapis.com"]
+    # These are the standard "permission strings" for Google Sheets & Drive
+    # DO NOT change these to your spreadsheet URL.
+    scopes = [
+        "https://googleapis.com",
+        "https://googleapis.com"
+    ]
     try:
         # Matches the [service_account] label in your Streamlit Secrets
         creds = Credentials.from_service_account_info(st.secrets["service_account"], scopes=scopes)
