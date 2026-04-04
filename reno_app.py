@@ -98,6 +98,20 @@ edited_wishlist = st.data_editor(
     },
     use_container_width=True
 )
+# Calculate and display the total
+if not edited_wishlist.empty:
+    # Clean the Price column to ensure it's numeric before summing
+    wishlist_total = pd.to_numeric(edited_wishlist["Price"], errors='coerce').fillna(0).sum()
+    
+    st.markdown(f"### 🛒 Wishlist Total: **${wishlist_total:,.2f}**")
+    
+    # Optional: Compare it to your remaining budget
+    # total_diff is calculated in your Budget section
+    if 'total_diff' in locals():
+        if wishlist_total > total_diff:
+            st.warning(f"⚠️ This is ${wishlist_total - total_diff:,.2f} over your remaining budget!")
+        else:
+            st.success(f"✅ You have enough remaining budget to cover this wishlist.")
 
 # --- A. BUDGET SECTION (UPDATED) ---
 st.header("💰 Budget Tracking")
