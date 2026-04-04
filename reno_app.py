@@ -29,14 +29,22 @@ def get_gspread_client():
 # --- 3. DATA LOADING FUNCTION ---
 @st.cache_data(ttl=600)
 def load_data(sheet_name):
-    """Connects to a specific worksheet and returns the data as a DataFrame."""
     try:
         client = get_gspread_client()
-        # Use the ID we defined at the top
         sh = client.open_by_key(SPREADSHEET_ID)
         worksheet = sh.worksheet(sheet_name)
-        data = worksheet.get_all_records()
-        return pd.DataFrame(data)
+        
+        # Switch to get_all_values for better reliability
+        data = worksheet.get_all_values()
+        
+        if not data:
+            return pd.DataFrame()
+            
+        # Manually create the DataFrame: 
+        # Row 0 becomes headers, everything else becomes the data
+        df = pd.DataFrame(data[1:], columns=data[0])
+        return df
+        
     except Exception as e:
         st.error(f"Error loading sheet '{sheet_name}': {e}")
         return pd.DataFrame()
