@@ -1,13 +1,33 @@
 import streamlit as st
+import gspread
 import pandas as pd
-import plotly.express as px
-from streamlit_gsheets import GSheetsConnection
+import plotly.express as px  # <--- REQUIRED NEW IMPORT
+from google.oauth2.service_account import Credentials
 
-# 1. Page Config
-st.set_page_config(page_title="My Home Reno Planner", layout="wide")
+# --- 1. CONFIGURATION & AUTH (Keep your existing code here) ---
+SPREADSHEET_ID = "1OKXpUghhzU-3eT0jx8fSYcrASLr4TkjfjnT3ep3TT_Q"
 
-# 2. Connection
-conn = st.connection("gsheets", type=GSheetsConnection)
+def get_gspread_client():
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    # ... (Keep your existing auth try/except block) ...
+    # Placeholder for brevity; assume your existing auth code is here
+    creds = Credentials.from_service_account_info(st.secrets["service_account"], scopes=scopes)
+    return gspread.authorize(creds)
+
+@st.cache_data(ttl=600)
+def load_data(sheet_name):
+    # ... (Keep your existing load_data function) ...
+    # Placeholder for brevity; assume your existing load_data code is here
+    client = get_gspread_client()
+    sh = client.open_by_key(SPREADSHEET_ID)
+    worksheet = sh.worksheet(sheet_name)
+    data = worksheet.get_all_values()
+    if not data or len(data) < 1: return pd.DataFrame()
+    if len(data) == 1: return pd.DataFrame(columns=data[0])
+    return pd.DataFrame(data[1:], columns=data[0])
 
 st.title("🏗️ Cloud Reno Manager")
 
