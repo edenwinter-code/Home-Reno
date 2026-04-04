@@ -1,80 +1,104 @@
 import streamlit as st
 import gspread
 import pandas as pd
+import plotly.express as px  # <--- REQUIRED NEW IMPORT
 from google.oauth2.service_account import Credentials
 
-# --- 1. CONFIGURATION ---
+# --- 1. CONFIGURATION & AUTH (Keep your existing code here) ---
 SPREADSHEET_ID = "1OKXpUghhzU-3eT0jx8fSYcrASLr4TkjfjnT3ep3TT_Q"
 
-# --- 2. AUTHENTICATION ---
 def get_gspread_client():
-    # CORRECT SCOPES for Google Sheets and Google Drive API
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    
-    try:
-        # Matches the [service_account] label in your Streamlit Secrets
-        creds = Credentials.from_service_account_info(st.secrets["service_account"], scopes=scopes)
-        return gspread.authorize(creds)
-    except Exception as e:
-        st.error(f"Authentication failed: {e}")
-        st.stop()
+    # ... (Keep your existing auth try/except block) ...
+    # Placeholder for brevity; assume your existing auth code is here
+    creds = Credentials.from_service_account_info(st.secrets["service_account"], scopes=scopes)
+    return gspread.authorize(creds)
 
-# --- 3. DATA LOADING ---
 @st.cache_data(ttl=600)
 def load_data(sheet_name):
-    try:
-        client = get_gspread_client()
-        sh = client.open_by_key(SPREADSHEET_ID)
-        worksheet = sh.worksheet(sheet_name)
-        
-        # Use get_all_values (more reliable than get_all_records)
-        data = worksheet.get_all_values()
-        
-        if not data or len(data) < 1:
-            return pd.DataFrame()
-            
-        # If there's only a header row, create an empty DF with those headers
-        if len(data) == 1:
-            return pd.DataFrame(columns=data[0])
-            
-        # Standard case: row 0 is headers, data is the rest
-        return pd.DataFrame(data[1:], columns=data[0])
-        
-    except Exception as e:
-        st.error(f"Error loading sheet '{sheet_name}': {e}")
-        return pd.DataFrame()
+    # ... (Keep your existing load_data function) ...
+    # Placeholder for brevity; assume your existing load_data code is here
+    client = get_gspread_client()
+    sh = client.open_by_key(SPREADSHEET_ID)
+    worksheet = sh.worksheet(sheet_name)
+    data = worksheet.get_all_values()
+    if not data or len(data) < 1: return pd.DataFrame()
+    if len(data) == 1: return pd.DataFrame(columns=data[0])
+    return pd.DataFrame(data[1:], columns=data[0])
 
 # --- 4. MAIN APP ---
 st.title("Home Reno Dashboard")
 
+# A. BUDGET SECTION
+st.header("💰 Budget Tracking")
 budget_df = load_data("Budget")
-
-# Check if we have at least columns (even if 0 rows of data)
 if not budget_df.columns.empty:
-    st.subheader("Budget Tracking")
-    # Using data_editor so you can add/edit rows
     edited_budget = st.data_editor(budget_df, num_rows="dynamic", key="budget_editor")
 else:
-    st.warning("Could not find headers in the 'Budget' tab. Check your Google Sheet.")
+    st.warning("Check 'Budget' tab in Sheets.")
 
-# --- 5. SAVE CHANGES ---
+# B. TIMELINE SECTION (NEW)
+st.divider()
+st.header("📅 Project Timeline")
+
+# 1. Load Data (or use default if sheet is empty)
+timeline_df = load_data("Timeline")
+
+if timeline_df.empty:
+    # Default fallback data if Google Sheet is empty
+    default_data = [
+        {"Task": "Planning", "Start": "2026-04-01", "Finish": "2026-05-15", "Resource": "Owner"},
+        {"Task": "Demolition", "Start": "2026-05-16", "Finish": "2026-05-25", "Resource": "Contractor"},
+    ]
+    timeline_df = pd.DataFrame(default_data)
+
+# 2. Edit Data
+edited_timeline = st.data_editor(timeline_df, num_rows="dynamic", key="timeline_editor")
+
+# 3. Render Gantt Chart
+# Plotly needs real DateTime objects, not strings
+if not edited_timeline.empty:
+    try:
+        # Create a copy for plotting so we don't break the string format for saving
+        plot_df = edited_timeline.copy()
+        plot_df["Start"] = pd.to_datetime(plot_df["Start"])
+        plot_df["Finish"] = pd.to_datetime(plot_df["Finish"])
+
+        fig = px.timeline(
+            plot_df, 
+            x_start="Start", 
+            x_end="Finish", 
+            y="Task", 
+            color="Resource",
+            title="Construction Schedule"
+        )
+        fig.update_yaxes(autorange="reversed") # Lists tasks top-to-bottom
+        st.plotly_chart(fig, use_container_width=True)
+    except Exception as e:
+        st.error(f"Chart Error: Ensure dates are YYYY-MM-DD. ({e})")
+
+# --- 5. SAVE CHANGES (UPDATED) ---
 st.divider()
 if st.button("💾 Save All Changes"):
     try:
         client = get_gspread_client()
         sh = client.open_by_key(SPREADSHEET_ID)
         
-        # Save Budget Tab
+        # 1. Save Budget
         b_sheet = sh.worksheet("Budget")
         b_sheet.clear()
-        # Convert DataFrame back to Google Sheets format (Headers + Rows)
-        data_to_save = [edited_budget.columns.values.tolist()] + edited_budget.values.tolist()
-        b_sheet.update(data_to_save)
+        b_sheet.update([edited_budget.columns.values.tolist()] + edited_budget.values.tolist())
+
+        # 2. Save Timeline
+        # Note: You must create a tab named "Timeline" in your Google Sheet first!
+        t_sheet = sh.worksheet("Timeline")
+        t_sheet.clear()
+        t_sheet.update([edited_timeline.columns.values.tolist()] + edited_timeline.values.tolist())
         
-        st.success("Successfully synced to Google Sheets!")
-        st.cache_data.clear() # Force app to see new data
+        st.success("Successfully synced Budget & Timeline to Google Sheets!")
+        st.cache_data.clear()
     except Exception as e:
         st.error(f"Save failed: {e}")
