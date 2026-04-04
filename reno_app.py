@@ -189,7 +189,7 @@ if not edited_timeline.empty:
     except Exception as e:
         st.error(f"Chart Error: Ensure dates are YYYY-MM-DD. ({e})")
 
-# --- 5. SAVE CHANGES (ROBUST FIX) ---
+# --- 5. SAVE CHANGES (FULL SYNC) ---
 st.divider()
 if st.button("💾 Save All Changes"):
     try:
@@ -197,42 +197,37 @@ if st.button("💾 Save All Changes"):
         sh = client.open_by_key(SPREADSHEET_ID)
         
         # 1. Save Budget
-        # Fill empty cells (NaN) with 0.0 before doing any math
         budget_to_save = edited_budget.fillna(0.0)
         budget_to_save["Difference"] = budget_to_save["Estimated"] - budget_to_save["Actual"]
-        
         b_sheet = sh.worksheet("Budget")
         b_sheet.clear()
-        # Convert to string at the very last step to ensure JSON compliance
         b_sheet.update([budget_to_save.columns.tolist()] + budget_to_save.astype(str).values.tolist())
 
         # 2. Save Timeline
         t_sheet = sh.worksheet("Timeline")
         t_sheet.clear()
-        # Fill empty timeline cells with an empty string so they don't cause JSON errors
         timeline_to_save = edited_timeline.fillna("")
         t_sheet.update([timeline_to_save.columns.tolist()] + timeline_to_save.astype(str).values.tolist())
         
         # 3. Save Todo List
         todo_sheet = sh.worksheet("Todo")
         todo_sheet.clear()
-        # Fill empty todo cells with an empty string
         todo_to_save = edited_todo.fillna("")
         todo_sheet.update([todo_to_save.columns.tolist()] + todo_to_save.astype(str).values.tolist())
 
         # 4. Save Contacts
-c_sheet = sh.worksheet("Contacts")
-c_sheet.clear()
-contacts_to_save = edited_contacts.fillna("")
-c_sheet.update([contacts_to_save.columns.tolist()] + contacts_to_save.astype(str).values.tolist())
+        c_sheet = sh.worksheet("Contacts")
+        c_sheet.clear()
+        contacts_to_save = edited_contacts.fillna("")
+        c_sheet.update([contacts_to_save.columns.tolist()] + contacts_to_save.astype(str).values.tolist())
 
-# 5. Save Wishlist
-w_sheet = sh.worksheet("Wishlist")
-w_sheet.clear()
-wishlist_to_save = edited_wishlist.fillna("")
-w_sheet.update([wishlist_to_save.columns.tolist()] + wishlist_to_save.astype(str).values.tolist())
+        # 5. Save Wishlist
+        w_sheet = sh.worksheet("Wishlist")
+        w_sheet.clear()
+        wishlist_to_save = edited_wishlist.fillna("")
+        w_sheet.update([wishlist_to_save.columns.tolist()] + wishlist_to_save.astype(str).values.tolist())
         
-        st.success("Successfully synced all data!")
+        st.success("Successfully synced all 5 sections!")
         st.cache_data.clear() 
         
     except Exception as e:
