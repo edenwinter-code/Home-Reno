@@ -57,27 +57,27 @@ edited_todo = st.data_editor(
     }
 )
 
-# --- SIDEBAR: QUICK CALCULATORS (Section 2) ---
+# --- SIDEBAR: QUICK CALCULATORS (METRIC) ---
 with st.sidebar:
     st.header("🧮 Material Calculators")
     calc_type = st.selectbox("Choose Calculator", ["Tile/Flooring", "Paint"])
     
     if calc_type == "Tile/Flooring":
-        length = st.number_input("Length (m)", min_value=0.0, value=10.0)
-        width = st.number_input("Width (m)", min_value=0.0, value=10.0)
+        length_m = st.number_input("Length (m)", min_value=0.0, value=3.0)
+        width_m = st.number_input("Width (m)", min_value=0.0, value=3.0)
         waste = st.slider("Waste Allowance (%)", 0, 20, 10)
-        area = length * width
-        total = area * (1 + waste/100)
-        st.metric("Total Sq m Needed", m"{total:.1m} sq m")
+        area_m2 = length_m * width_m
+        total_m2 = area_m2 * (1 + waste/100)
+        st.metric("Total Sq Metres Needed", f"{total_m2:.2f} m²")
         
     elif calc_type == "Paint":
-        p_length = st.number_input("Wall Length (ft)", min_value=0.0, value=12.0)
-        p_height = st.number_input("Wall Height (ft)", min_value=0.0, value=8.0)
+        p_length_m = st.number_input("Wall Length (m)", min_value=0.0, value=4.0)
+        p_height_m = st.number_input("Wall Height (m)", min_value=0.0, value=2.4)
         coats = st.number_input("Number of Coats", 1, 3, 2)
-        # Avg coverage: 350 sq ft per gallon
-        gallons = ((p_length * p_height) * coats) / 350
-        st.metric("Gallons Needed", f"{gallons:.2f}")
-
+        # Standard coverage: approx 12-14 sq metres per Litre
+        litres = ((p_length_m * p_height_m) * coats) / 12
+        st.metric("Litres Needed", f"{litres:.2f} L")
+        
 # --- D. CONTACTS DIRECTORY (Section 3) ---
 st.divider()
 st.header("📞 Trades & Contacts")
