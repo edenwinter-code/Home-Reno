@@ -147,23 +147,36 @@ if not edited_timeline.empty:
     except Exception as e:
         st.error(f"Chart Error: Ensure dates are YYYY-MM-DD. ({e})")
 
-# --- 5. SAVE CHANGES (UPDATED) ---
+# --- 5. SAVE CHANGES (UPDATED FIX) ---
 st.divider()
 if st.button("💾 Save All Changes"):
     try:
         client = get_gspread_client()
         sh = client.open_by_key(SPREADSHEET_ID)
         
-        # ... (Your existing Budget save code) ...
+        # 1. Save Budget (The Fix: Convert to string for gspread compatibility)
+        edited_budget["Difference"] = edited_budget["Estimated"] - edited_budget["Actual"]
         
-        # ... (Your existing Timeline save code) ...
+        # Convert all columns to strings to avoid JSON/Type errors in gspread
+        budget_to_save = edited_budget.astype(str).values.tolist()
+        budget_headers = edited_budget.columns.tolist()
+        
+        b_sheet = sh.worksheet("Budget")
+        b_sheet.clear()
+        b_sheet.update([budget_headers] + budget_to_save)
 
-        # 3. Save Todo List (Add this block)
+        # 2. Save Timeline
+        t_sheet = sh.worksheet("Timeline")
+        t_sheet.clear()
+        t_sheet.update([edited_timeline.columns.tolist()] + edited_timeline.astype(str).values.tolist())
+        
+        # 3. Save Todo List
         todo_sheet = sh.worksheet("Todo")
         todo_sheet.clear()
-        todo_sheet.update([edited_todo.columns.values.tolist()] + edited_todo.values.tolist())
+        todo_sheet.update([edited_todo.columns.tolist()] + edited_todo.astype(str).values.tolist())
         
-        st.success("Successfully synced Budget, Timeline, & Todo List!")
+        st.success("Successfully synced all sections to Google Sheets!")
         st.cache_data.clear() 
+        
     except Exception as e:
         st.error(f"Save failed: {e}")
