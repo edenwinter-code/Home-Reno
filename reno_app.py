@@ -32,11 +32,53 @@ def load_data(sheet_name):
 # --- 4. MAIN APP ---
 st.title("Home Reno Dashboard")
 
-# A. BUDGET SECTION
+# --- A. BUDGET SECTION (UPDATED) ---
 st.header("💰 Budget Tracking")
 budget_df = load_data("Budget")
+
 if not budget_df.columns.empty:
-    edited_budget = st.data_editor(budget_df, num_rows="dynamic", key="budget_editor")
+    # 1. CLEANING: Convert Google Sheets text ("$1,000") to Numbers (1000.0)
+    # This regex removes '$' and ',' before converting to float
+    cols_to_clean = ["Estimated", "Actual"]
+    
+    for col in cols_to_clean:
+        if col in budget_df.columns:
+            budget_df[col] = (
+                budget_df[col]
+                .astype(str)                     # Ensure it's a string first
+                .str.replace(r'[$,]', '', regex=True) # Remove currency symbols
+                .apply(pd.to_numeric, errors='coerce') # Convert to number
+                .fillna(0.0)                     # Treat empty cells as $0
+            )
+
+    # 2. CALCULATION: Apply the math
+    # Ensure the Difference column exists and calculate it
+    budget_df["Difference"] = budget_df["Estimated"] - budget_df["Actual"]
+
+    # 3. DISPLAY: Show the editor with the calculated column locked
+    edited_budget = st.data_editor(
+        budget_df,
+        num_rows="dynamic",
+        key="budget_editor",
+        column_config={
+            "Estimated": st.column_config.NumberColumn(format="$%.2f"),
+            "Actual": st.column_config.NumberColumn(format="$%.2f"),
+            # Lock Difference so users don't overwrite the formula
+            "Difference": st.column_config.NumberColumn(format="$%.2f", disabled=True), 
+        }
+    )
+
+    # 4. LIVE METRICS (Optional but recommended)
+    # This gives instant feedback since the table row won't update until you Save
+    total_est = edited_budget["Estimated"].sum()
+    total_act = edited_budget["Actual"].sum()
+    total_diff = total_est - total_act
+    
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total Estimated", f"${total_est:,.2f}")
+    c2.metric("Total Actual", f"${total_act:,.2f}")
+    c3.metric("Remaining Budget", f"${total_diff:,.2f}", delta_color="normal")
+
 else:
     st.warning("Check 'Budget' tab in Sheets.")
 
@@ -88,17 +130,20 @@ if st.button("💾 Save All Changes"):
         sh = client.open_by_key(SPREADSHEET_ID)
         
         # 1. Save Budget
+        # CRITICAL: Recalculate 'Difference' on the EDITED data before saving
+        # This ensures the sheet gets the correct math based on your new edits
+        edited_budget["Difference"] = edited_budget["Estimated"] - edited_budget["Actual"]
+        
         b_sheet = sh.worksheet("Budget")
         b_sheet.clear()
         b_sheet.update([edited_budget.columns.values.tolist()] + edited_budget.values.tolist())
 
-        # 2. Save Timeline
-        # Note: You must create a tab named "Timeline" in your Google Sheet first!
+        # 2. Save Timeline (Keep your existing logic)
         t_sheet = sh.worksheet("Timeline")
         t_sheet.clear()
         t_sheet.update([edited_timeline.columns.values.tolist()] + edited_timeline.values.tolist())
         
         st.success("Successfully synced Budget & Timeline to Google Sheets!")
-        st.cache_data.clear()
+        st.cache_data.clear() # Reloads the page with the new calculations
     except Exception as e:
         st.error(f"Save failed: {e}")
