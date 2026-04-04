@@ -63,12 +63,12 @@ with st.sidebar:
     calc_type = st.selectbox("Choose Calculator", ["Tile/Flooring", "Paint"])
     
     if calc_type == "Tile/Flooring":
-        length = st.number_input("Length (ft)", min_value=0.0, value=10.0)
-        width = st.number_input("Width (ft)", min_value=0.0, value=10.0)
+        length = st.number_input("Length (m)", min_value=0.0, value=10.0)
+        width = st.number_input("Width (m)", min_value=0.0, value=10.0)
         waste = st.slider("Waste Allowance (%)", 0, 20, 10)
         area = length * width
         total = area * (1 + waste/100)
-        st.metric("Total Sq Ft Needed", f"{total:.1f} sq ft")
+        st.metric("Total Sq m Needed", m"{total:.1m} sq m")
         
     elif calc_type == "Paint":
         p_length = st.number_input("Wall Length (ft)", min_value=0.0, value=12.0)
