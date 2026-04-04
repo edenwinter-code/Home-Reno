@@ -28,9 +28,23 @@ def load_data(sheet_name):
     if not data or len(data) < 1: return pd.DataFrame()
     if len(data) == 1: return pd.DataFrame(columns=data[0])
     return pd.DataFrame(data[1:], columns=data[0])
+    if 'todo_df' not in st.session_state:
+    # Ensure your Google Sheet has a worksheet named "Todo" 
+    # with columns: Done (TRUE/FALSE), Task, and Notes
+    st.session_state.todo_df = conn.read(worksheet="Todo", ttl=0)
+
 
 # --- 4. MAIN APP ---
 st.title("Home Reno Dashboard")
+
+# 4. Todo List Section (New)
+st.header("✅ Project Todo List")
+edited_todo = st.data_editor(
+    st.session_state.todo_df, 
+    num_rows="dynamic", 
+    key="todo_edit",
+    use_container_width=True
+)
 
 # --- A. BUDGET SECTION (UPDATED) ---
 st.header("💰 Budget Tracking")
