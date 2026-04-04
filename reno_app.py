@@ -28,22 +28,33 @@ def load_data(sheet_name):
     if not data or len(data) < 1: return pd.DataFrame()
     if len(data) == 1: return pd.DataFrame(columns=data[0])
     return pd.DataFrame(data[1:], columns=data[0])
-    if 'todo_df' not in st.session_state:
-    # Ensure your Google Sheet has a worksheet named "Todo" 
-    # with columns: Done (TRUE/FALSE), Task, and Notes
-    st.session_state.todo_df = conn.read(worksheet="Todo", ttl=0)
-
 
 # --- 4. MAIN APP ---
 st.title("Home Reno Dashboard")
 
-# 4. Todo List Section (New)
+# --- C. TODO LIST SECTION (NEW) ---
+st.divider()
 st.header("✅ Project Todo List")
+
+# 1. Load Todo Data
+todo_df = load_data("Todo")
+
+# 2. Display Todo Editor
+# This uses CheckboxColumn for the 'Done' field
 edited_todo = st.data_editor(
-    st.session_state.todo_df, 
-    num_rows="dynamic", 
-    key="todo_edit",
-    use_container_width=True
+    todo_df,
+    num_rows="dynamic",
+    key="todo_editor",
+    use_container_width=True,
+    column_config={
+        "Done": st.column_config.CheckboxColumn(
+            "Done",
+            help="Check off completed tasks",
+            default=False,
+        ),
+        "Task": st.column_config.TextColumn("Task", width="medium"),
+        "Notes": st.column_config.TextColumn("Notes", width="large"),
+    }
 )
 
 # --- A. BUDGET SECTION (UPDATED) ---
@@ -143,22 +154,16 @@ if st.button("💾 Save All Changes"):
         client = get_gspread_client()
         sh = client.open_by_key(SPREADSHEET_ID)
         
-        # 1. Save Budget
-        # CRITICAL: Recalculate 'Difference' on the EDITED data before saving
-        # This ensures the sheet gets the correct math based on your new edits
-        edited_budget["Difference"] = edited_budget["Estimated"] - edited_budget["Actual"]
+        # ... (Your existing Budget save code) ...
         
-        b_sheet = sh.worksheet("Budget")
-        b_sheet.clear()
-        b_sheet.update([edited_budget.columns.values.tolist()] + edited_budget.values.tolist())
+        # ... (Your existing Timeline save code) ...
 
-        # 2. Save Timeline (Keep your existing logic)
-        t_sheet = sh.worksheet("Timeline")
-        t_sheet.clear()
-        t_sheet.update([edited_timeline.columns.values.tolist()] + edited_timeline.values.tolist())
+        # 3. Save Todo List (Add this block)
+        todo_sheet = sh.worksheet("Todo")
+        todo_sheet.clear()
+        todo_sheet.update([edited_todo.columns.values.tolist()] + edited_todo.values.tolist())
         
-        st.success("Successfully synced Budget & Timeline to Google Sheets!")
-        st.cache_data.clear() # Reloads the page with the new calculations
+        st.success("Successfully synced Budget, Timeline, & Todo List!")
+        st.cache_data.clear() 
     except Exception as e:
         st.error(f"Save failed: {e}")
-
