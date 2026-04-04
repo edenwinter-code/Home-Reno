@@ -4,60 +4,39 @@ import pandas as pd
 from google.oauth2.service_account import Credentials
 
 # --- 1. CONFIGURATION ---
-def load_data(sheet_name):
-    """Connects using the unique Spreadsheet ID (key)."""
-    try:
-        client = get_gspread_client()
-        # Use the ID directly to avoid name typos
-        SPREADSHEET_ID = "1OKXpUghhzU-3eT0jx8fSYcrASLr4TkjfjnT3ep3TT_Q"
-        sh = client.open_by_key(SPREADSHEET_ID) # Changed from .open()
-        
-        worksheet = sh.worksheet(sheet_name)
-        data = worksheet.get_all_records()
-        return pd.DataFrame(data)
-    except gspread.exceptions.SpreadsheetNotFound:
-        st.error("Spreadsheet not found. Did you share it with the service account email?")
-        st.stop()
-        
+# Put your ID here once so the whole app can use it
+SPREADSHEET_ID = "1OKXpUghhzU-3eT0jx8fSYcrASLr4TkjfjnT3ep3TT_Q"
+
 # --- 2. AUTHENTICATION FUNCTION ---
 def get_gspread_client():
     """Authenticates and returns a gspread client using Streamlit secrets."""
-    # These scopes are required to talk to Google Sheets and Drive
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
     
-    # This pulls the credentials from the [gcp_service_account] block in your Secrets
     try:
+        # Note: Using "service_account" as the key to match your secrets
         creds = Credentials.from_service_account_info(
             st.secrets["service_account"], 
             scopes=scopes
         )
         return gspread.authorize(creds)
-    except KeyError:
-        st.error("Error: 'gcp_service_account' not found in Streamlit Secrets.")
-        st.stop()
     except Exception as e:
         st.error(f"Authentication failed: {e}")
         st.stop()
 
 # --- 3. DATA LOADING FUNCTION ---
-@st.cache_data(ttl=600) # Optional: Caches data for 10 minutes to speed up the app
+@st.cache_data(ttl=600)
 def load_data(sheet_name):
     """Connects to a specific worksheet and returns the data as a DataFrame."""
     try:
         client = get_gspread_client()
-        # Open the spreadsheet by name
-        sh = client.open(SPREADSHEET_NAME)
-        # Select the worksheet (e.g., "Budget")
+        # Use the ID we defined at the top
+        sh = client.open_by_key(SPREADSHEET_ID)
         worksheet = sh.worksheet(sheet_name)
-        # Convert the data into a Pandas DataFrame
         data = worksheet.get_all_records()
         return pd.DataFrame(data)
-    except gspread.exceptions.SpreadsheetNotFound:
-        st.error(f"Spreadsheet '{SPREADSHEET_NAME}' not found. Check the name and sharing permissions.")
-        st.stop()
     except Exception as e:
         st.error(f"Error loading sheet '{sheet_name}': {e}")
         return pd.DataFrame()
@@ -65,29 +44,31 @@ def load_data(sheet_name):
 # --- 4. MAIN APP LOGIC ---
 st.title("Home Reno Dashboard")
 
-# Call the function for your "Budget" sheet
+# Load the Budget data
 budget_df = load_data("Budget")
 
 if not budget_df.empty:
     st.subheader("Budget Data")
-    st.write(budget_df)
+    # Using data_editor so you can actually change the numbers
+    edited_budget = st.data_editor(budget_df) 
 else:
     st.info("No data found in the 'Budget' worksheet.")
 
-# 5. Save Button
+# --- 5. SAVE BUTTON ---
 st.divider()
 if st.button("💾 Save All Changes"):
-    client = get_gspread_client()
-    sh = client.open_by_key(SPREADSHEET_ID)
-    
-    # Save Budget
-    b_sheet = sh.worksheet("Budget")
-    b_sheet.clear() # Clear old data
-    b_sheet.update([edited_budget.columns.values.tolist()] + edited_budget.values.tolist())
-    
-    # Save Timeline
-    t_sheet = sh.worksheet("Timeline")
-    t_sheet.clear()
-    t_sheet.update([edited_timeline.columns.values.tolist()] + edited_timeline.values.tolist())
+    try:
+        client = get_gspread_client()
+        sh = client.open_by_key(SPREADSHEET_ID)
+        
+        # Save Budget
+        b_sheet = sh.worksheet("Budget")
+        # Overwrite the sheet with the edited data
+        b_sheet.update([edited_budget.columns.values.tolist()] + edited_budget.values.tolist())
+        
+        st.success("All data successfully synced to the cloud!")
+        st.cache_data.clear() # Clear cache so it shows the new data on refresh
+    except Exception as e:
+        st.error(f"Failed to save: {e}")
     
     st.success("All data successfully synced to the cloud!")
