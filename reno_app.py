@@ -29,48 +29,122 @@ def load_data(sheet_name):
     if len(data) == 1: return pd.DataFrame(columns=data[0])
     return pd.DataFrame(data[1:], columns=data[0])
 
-st.title("🏗️ Cloud Reno Manager")
+# --- 4. MAIN APP ---
+st.title("Home Reno Dashboard")
 
-# 3. Load Data (Added Todo Worksheet)
-if 'budget_df' not in st.session_state:
-    st.session_state.budget_df = conn.read(worksheet="Budget", ttl=0)
-if 'timeline_df' not in st.session_state:
-    st.session_state.timeline_df = conn.read(worksheet="Timeline", ttl=0)
-if 'todo_df' not in st.session_state:
-    # Ensure your Google Sheet has a worksheet named "Todo" 
-    # with columns: Done (TRUE/FALSE), Task, and Notes
-    st.session_state.todo_df = conn.read(worksheet="Todo", ttl=0)
+# --- A. BUDGET SECTION (UPDATED) ---
+st.header("💰 Budget Tracking")
+budget_df = load_data("Budget")
 
-# 4. Todo List Section (New)
-st.header("✅ Project Todo List")
-edited_todo = st.data_editor(
-    st.session_state.todo_df, 
-    num_rows="dynamic", 
-    key="todo_edit",
-    use_container_width=True
-)
-
-# 5. Budget Tracker Section
-st.header("Financial Overview")
-edited_budget = st.data_editor(st.session_state.budget_df, num_rows="dynamic", key="b_edit")
-
-# 6. Timeline Section
-st.header("Project Timeline")
-edited_timeline = st.data_editor(st.session_state.timeline_df, num_rows="dynamic", key="t_edit")
-
-# Draw the Chart
-fig = px.timeline(edited_timeline, x_start="Start", x_end="Finish", y="Task", color="Resource")
-fig.update_yaxes(autorange="reversed")
-st.plotly_chart(fig, use_container_width=True)
-
-# 7. Save Button
-st.divider()
-if st.button("☁️ Save to Cloud"):
-    conn.update(worksheet="Budget", data=edited_budget)
-    conn.update(worksheet="Timeline", data=edited_timeline)
-    conn.update(worksheet="Todo", data=edited_todo) # Save the new list
+if not budget_df.columns.empty:
+    # 1. CLEANING: Convert Google Sheets text ("$1,000") to Numbers (1000.0)
+    # This regex removes '$' and ',' before converting to float
+    cols_to_clean = ["Estimated", "Actual"]
     
-    st.session_state.budget_df = edited_budget
-    st.session_state.timeline_df = edited_timeline
-    st.session_state.todo_df = edited_todo
-    st.success("All data saved to Google Sheets!")
+    for col in cols_to_clean:
+        if col in budget_df.columns:
+            budget_df[col] = (
+                budget_df[col]
+                .astype(str)                     # Ensure it's a string first
+                .str.replace(r'[$,]', '', regex=True) # Remove currency symbols
+                .apply(pd.to_numeric, errors='coerce') # Convert to number
+                .fillna(0.0)                     # Treat empty cells as $0
+            )
+
+    # 2. CALCULATION: Apply the math
+    # Ensure the Difference column exists and calculate it
+    budget_df["Difference"] = budget_df["Estimated"] - budget_df["Actual"]
+
+    # 3. DISPLAY: Show the editor with the calculated column locked
+    edited_budget = st.data_editor(
+        budget_df,
+        num_rows="dynamic",
+        key="budget_editor",
+        column_config={
+            "Estimated": st.column_config.NumberColumn(format="$%.2f"),
+            "Actual": st.column_config.NumberColumn(format="$%.2f"),
+            # Lock Difference so users don't overwrite the formula
+            "Difference": st.column_config.NumberColumn(format="$%.2f", disabled=True), 
+        }
+    )
+
+    # 4. LIVE METRICS (Optional but recommended)
+    # This gives instant feedback since the table row won't update until you Save
+    total_est = edited_budget["Estimated"].sum()
+    total_act = edited_budget["Actual"].sum()
+    total_diff = total_est - total_act
+    
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total Estimated", f"${total_est:,.2f}")
+    c2.metric("Total Actual", f"${total_act:,.2f}")
+    c3.metric("Remaining Budget", f"${total_diff:,.2f}", delta_color="normal")
+
+else:
+    st.warning("Check 'Budget' tab in Sheets.")
+
+# B. TIMELINE SECTION (NEW)
+st.divider()
+st.header("📅 Project Timeline")
+
+# 1. Load Data (or use default if sheet is empty)
+timeline_df = load_data("Timeline")
+
+if timeline_df.empty:
+    # Default fallback data if Google Sheet is empty
+    default_data = [
+        {"Task": "Planning", "Start": "2026-04-01", "Finish": "2026-05-15", "Resource": "Owner"},
+        {"Task": "Demolition", "Start": "2026-05-16", "Finish": "2026-05-25", "Resource": "Contractor"},
+    ]
+    timeline_df = pd.DataFrame(default_data)
+
+# 2. Edit Data
+edited_timeline = st.data_editor(timeline_df, num_rows="dynamic", key="timeline_editor")
+
+# 3. Render Gantt Chart
+# Plotly needs real DateTime objects, not strings
+if not edited_timeline.empty:
+    try:
+        # Create a copy for plotting so we don't break the string format for saving
+        plot_df = edited_timeline.copy()
+        plot_df["Start"] = pd.to_datetime(plot_df["Start"])
+        plot_df["Finish"] = pd.to_datetime(plot_df["Finish"])
+
+        fig = px.timeline(
+            plot_df, 
+            x_start="Start", 
+            x_end="Finish", 
+            y="Task", 
+            color="Resource",
+            title="Construction Schedule"
+        )
+        fig.update_yaxes(autorange="reversed") # Lists tasks top-to-bottom
+        st.plotly_chart(fig, use_container_width=True)
+    except Exception as e:
+        st.error(f"Chart Error: Ensure dates are YYYY-MM-DD. ({e})")
+
+# --- 5. SAVE CHANGES (UPDATED) ---
+st.divider()
+if st.button("💾 Save All Changes"):
+    try:
+        client = get_gspread_client()
+        sh = client.open_by_key(SPREADSHEET_ID)
+        
+        # 1. Save Budget
+        # CRITICAL: Recalculate 'Difference' on the EDITED data before saving
+        # This ensures the sheet gets the correct math based on your new edits
+        edited_budget["Difference"] = edited_budget["Estimated"] - edited_budget["Actual"]
+        
+        b_sheet = sh.worksheet("Budget")
+        b_sheet.clear()
+        b_sheet.update([edited_budget.columns.values.tolist()] + edited_budget.values.tolist())
+
+        # 2. Save Timeline (Keep your existing logic)
+        t_sheet = sh.worksheet("Timeline")
+        t_sheet.clear()
+        t_sheet.update([edited_timeline.columns.values.tolist()] + edited_timeline.values.tolist())
+        
+        st.success("Successfully synced Budget & Timeline to Google Sheets!")
+        st.cache_data.clear() # Reloads the page with the new calculations
+    except Exception as e:
+        st.error(f"Save failed: {e}")
+
