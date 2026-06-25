@@ -84,43 +84,14 @@ st.header("📞 Trades & Contacts")
 contacts_df = load_data("Contacts")
 edited_contacts = st.data_editor(contacts_df, num_rows="dynamic", key="contact_edit", use_container_width=True)
 
-# --- E. SHOPPING WISHLIST (Section 4) ---
-st.divider()
-st.header("🛒 Shopping Wishlist")
-wishlist_df = load_data("Wishlist")
-edited_wishlist = st.data_editor(
-    wishlist_df, 
-    num_rows="dynamic", 
-    key="wish_edit",
-    column_config={
-        "Price": st.column_config.NumberColumn(format="$%.2f"),
-        "Link": st.column_config.LinkColumn("Product Link")
-    },
-    use_container_width=True
-)
-# Calculate and display the total
-if not edited_wishlist.empty:
-    # Clean the Price column to ensure it's numeric before summing
-    wishlist_total = pd.to_numeric(edited_wishlist["Price"], errors='coerce').fillna(0).sum()
-    
-    st.markdown(f"### 🛒 Wishlist Total: **${wishlist_total:,.2f}**")
-    
-    # Optional: Compare it to your Difference budget
-    # total_diff is calculated in your Budget section
-    if 'total_diff' in locals():
-        if wishlist_total > total_diff:
-            st.warning(f"⚠️ This is ${wishlist_total - total_diff:,.2f} over your Difference budget!")
-        else:
-            st.success(f"✅ You have enough Difference budget to cover this wishlist.")
-
 # --- A. BUDGET SECTION (UPDATED) ---
 st.header("💰 Budget Tracking")
 budget_df = load_data("Budget")
 
 if not budget_df.columns.empty:
     # 1. CLEANING: Convert Google Sheets text ("$1,000") to Numbers (1000.0)
-    # This regex removes '$' and ',' before converting to float
-    cols_to_clean = ["Estimated", "Actual"]
+    # We now target your new input columns: "Actual" and "Paid"
+    cols_to_clean = ["Actual", "Paid"]
     
     for col in cols_to_clean:
         if col in budget_df.columns:
@@ -132,9 +103,8 @@ if not budget_df.columns.empty:
                 .fillna(0.0)                     # Treat empty cells as $0
             )
 
-    # 2. CALCULATION: Apply the math
-    # Ensure the Difference column exists and calculate it
-    budget_df["Difference"] = budget_df["Estimated"] - budget_df["Actual"]
+    # 2. CALCULATION: Apply the new math (Remaining = Actual - Paid)
+    budget_df["Remaining"] = budget_df["Actual"] - budget_df["Paid"]
 
     # 3. DISPLAY: Show the editor with the calculated column locked
     edited_budget = st.data_editor(
@@ -142,23 +112,22 @@ if not budget_df.columns.empty:
         num_rows="dynamic",
         key="budget_editor",
         column_config={
-            "Estimated": st.column_config.NumberColumn(format="$%.2f"),
             "Actual": st.column_config.NumberColumn(format="$%.2f"),
-            # Lock Difference so users don't overwrite the formula
-            "Difference": st.column_config.NumberColumn(format="$%.2f", disabled=True), 
+            "Paid": st.column_config.NumberColumn(format="$%.2f"),
+            # Lock Remaining so users don't overwrite your calculation
+            "Remaining": st.column_config.NumberColumn(format="$%.2f", disabled=True), 
         }
     )
 
-    # 4. LIVE METRICS (Optional but recommended)
-    # This gives instant feedback since the table row won't update until you Save
-    total_est = edited_budget["Estimated"].sum()
+    # 4. LIVE METRICS
     total_act = edited_budget["Actual"].sum()
-    total_diff = total_est - total_act
+    total_paid = edited_budget["Paid"].sum()
+    total_rem = total_act - total_paid  # Changed variable name to match context
     
     c1, c2, c3 = st.columns(3)
-    c1.metric("Total Estimated", f"${total_est:,.2f}")
-    c2.metric("Total Actual", f"${total_act:,.2f}")
-    c3.metric("Difference Budget", f"${total_diff:,.2f}", delta_color="normal")
+    c1.metric("Total Actual Cost", f"${total_act:,.2f}")
+    c2.metric("Total Paid", f"${total_paid:,.2f}")
+    c3.metric("Remaining Owed", f"${total_rem:,.2f}", delta_color="normal")
 
 else:
     st.warning("Check 'Budget' tab in Sheets.")
@@ -212,10 +181,12 @@ if st.button("💾 Save All Changes"):
         
         # 1. Save Budget
         budget_to_save = edited_budget.fillna(0.0)
-        budget_to_save["Difference"] = budget_to_save["Estimated"] - budget_to_save["Actual"]
+        # Recalculate using the new math before saving back
+        budget_to_save["Remaining"] = budget_to_save["Actual"] - budget_to_save["Paid"]
         b_sheet = sh.worksheet("Budget")
         b_sheet.clear()
-        b_sheet.update([budget_to_save.columns.tolist()] + budget_to_save.astype(str).values.tolist())
+        # Converts DataFrame back into a nested list format for Google Sheets
+        b_sheet.update([budget_to_save.columns.tolist()] + budget_to_save.values.tolist())
 
         # 2. Save Timeline
         t_sheet = sh.worksheet("Timeline")
@@ -235,13 +206,8 @@ if st.button("💾 Save All Changes"):
         contacts_to_save = edited_contacts.fillna("")
         c_sheet.update([contacts_to_save.columns.tolist()] + contacts_to_save.astype(str).values.tolist())
 
-        # 5. Save Wishlist
-        w_sheet = sh.worksheet("Wishlist")
-        w_sheet.clear()
-        wishlist_to_save = edited_wishlist.fillna("")
-        w_sheet.update([wishlist_to_save.columns.tolist()] + wishlist_to_save.astype(str).values.tolist())
-        
-        st.success("Successfully synced all 5 sections!")
+               
+        st.success("Successfully synced all 4 sections!")
         st.cache_data.clear() 
         
     except Exception as e:
